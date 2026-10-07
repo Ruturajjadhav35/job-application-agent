@@ -1,0 +1,30 @@
+# What the agent looks for. Edit freely; it's checked on load.
+roles:
+  - Machine Learning Engineer
+  - Data Scientist
+  - AI Engineer
+  - Data Engineer
+  - Data Analyst
+  - Software Development Engineer
+  - Gen AI Engineer
+locations:
+  - Bengaluru
+  - Pune
+  - Hyderabad
+  - Mumbai
+  - Chennai
+  - Gurgaon
+  - Noida
+include_remote: true
+min_experience_years: 0
+max_experience_years: 1
+min_salary_inr: null    
+must_have_skills:
+  - Python
+  - SQL
+deal_breakers:
+  - registration fee
+  - unpaid
+  - training fee
+  - security fee
+daily_application_cap: 25
