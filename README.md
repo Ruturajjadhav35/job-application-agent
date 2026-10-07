@@ -31,3 +31,12 @@ applications. You review and submit every application yourself.
 - After changing a model, run
   `uv run alembic revision --autogenerate -m "what changed"` then
   `uv run alembic upgrade head`.
+
+## Daily commands
+
+1. `uv run job-agent fetch` gets new jobs from Adzuna
+2. `uv run job-agent screen` applies the rule filters (scams, seniority, experience, location)
+3. `uv run job-agent match` scores shortlisted jobs against `private/master_resume.json`
+4. `uv run job-agent list --top 30` shows your best matches
+
+Your master resume lives in `private/`, which Git ignores. It never goes to GitHub.

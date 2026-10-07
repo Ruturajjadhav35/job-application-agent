@@ -18,7 +18,8 @@ locations:
 include_remote: true
 min_experience_years: 0
 max_experience_years: 1
-min_salary_inr: null    
+min_salary_inr: null 
+min_match_score: 30   
 must_have_skills:
   - Python
   - SQL

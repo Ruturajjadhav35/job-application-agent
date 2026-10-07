@@ -52,7 +52,8 @@ class Job(SQLModel, table=True):
         default=JobStatus.NEW,
         sa_column=_enum_column(JobStatus, "job_status", nullable=False, index=True),
     )
-    match_score: float | None = None
+    match_score: float | None = Field(default=None, index=True)
+    match_details: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
     scam_flags: list[str] = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     notes: str | None = None
 

@@ -171,3 +171,10 @@ def test_rescreen_after_config_change(session, search):
     search.locations.append("Kolkata")
     stats = screen_jobs(session, search, rescreen=True)
     assert j.status == JobStatus.SHORTLISTED and stats.shortlisted == 1
+
+
+def test_more_skill_synonyms():
+    assert has_skill("Experience with LLM apps", "LLMs")
+    assert has_skill("Strong ETL background", "ETL/ELT Pipelines")
+    assert has_skill("Uses sklearn daily", "Scikit-learn")
+    assert has_skill("Build RESTful services", "REST APIs")

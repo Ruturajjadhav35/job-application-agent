@@ -14,3 +14,4 @@ wheels/
 data/
 *.db
 .DS_Store
+private/

@@ -76,18 +76,48 @@ def run_screen(args) -> None:
 
 
 def list_jobs(args) -> None:
+    status = JobStatus.SHORTLISTED if args.top else JobStatus(args.status)
+    limit = args.top or args.limit
     with get_session() as session:
-        query = select(Job).where(Job.status == JobStatus(args.status))
+        query = select(Job).where(Job.status == status)
         if args.source:
             query = query.where(Job.source == args.source)
-        jobs = session.exec(query.order_by(Job.posted_at.desc()).limit(args.limit)).all()
+        if args.top:
+            query = query.order_by(Job.match_score.desc().nulls_last())
+        else:
+            query = query.order_by(Job.posted_at.desc())
+        jobs = session.exec(query.limit(limit)).all()
     if not jobs:
-        print(f"No jobs with status '{args.status}'.")
+        print(f"No jobs with status '{status}'.")
     for j in jobs:
         where = j.city or ("Remote" if j.is_remote else "?")
-        print(f"[{j.id:>4}] {j.title} | {j.company} | {where}")
+        score = f"{j.match_score:5.1f}  " if j.match_score is not None else ""
+        print(f"[{j.id:>4}] {score}{j.title} | {j.company} | {where}")
         if args.reasons and j.notes:
             print(f"       {j.notes}")
+        if args.reasons and j.match_details:
+            skills = ", ".join(j.match_details.get("matched_skills", [])) or "none found"
+            print(f"       skills found: {skills}")
+
+
+def run_match(args) -> None:
+    from job_agent.config import get_settings
+    from job_agent.matching import LocalEmbedder, Matcher
+    from job_agent.ranking import match_jobs
+    from job_agent.resume import load_resume
+
+    search = load_search_config()
+    try:
+        resume = load_resume(get_settings().master_resume_path)
+    except FileNotFoundError as e:
+        sys.exit(f"Error: {e}")
+    print("Loading the matching model (the first run downloads it, about 130 MB)...")
+    matcher = Matcher(resume, search, LocalEmbedder())
+    with get_session() as session:
+        stats = match_jobs(session, search, matcher, rescore=args.rescore, dry_run=args.dry_run)
+    print(stats.report(search.min_match_score))
+    if args.dry_run:
+        print("Dry run: nothing was saved.")
 
 
 def why(args) -> None:
@@ -102,6 +132,12 @@ def why(args) -> None:
     print(f"Apply: {job.apply_url}")
     if job.scam_flags:
         print(f"Scam flags: {', '.join(job.scam_flags)}")
+    if job.match_score is not None:
+        d = job.match_details or {}
+        print(f"Match score: {job.match_score:g}")
+        print(f"  Skills found: {', '.join(d.get('matched_skills', [])) or 'none'}")
+        if d.get("missing_must_haves"):
+            print(f"  Must-haves not found: {', '.join(d['missing_must_haves'])}")
     print("History:")
     for e in events:
         frm = e.from_status or "-"
@@ -140,7 +176,17 @@ def main() -> None:
     ls.add_argument("--limit", type=int, default=20)
     ls.add_argument("--source", default=None)
     ls.add_argument("--reasons", action="store_true", help="show why each job got its status")
+    ls.add_argument("--top", type=int, default=None, help="best N shortlisted jobs by match score")
     ls.set_defaults(func=list_jobs)
+
+    m = sub.add_parser("match", help="score shortlisted jobs against your master resume")
+    m.add_argument(
+        "--rescore",
+        action="store_true",
+        help="re-score everything (after changing your resume or min_match_score)",
+    )
+    m.add_argument("--dry-run", action="store_true", help="show scores without saving")
+    m.set_defaults(func=run_match)
 
     w = sub.add_parser("why", help="show a job's details and full status history")
     w.add_argument("job_id", type=int)

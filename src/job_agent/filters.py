@@ -60,6 +60,14 @@ OFF_TARGET_TITLE = re.compile(
 SKILL_SYNONYMS = {
     "python": ["python", "pyspark", "pandas", "django", "flask", "fastapi"],
     "sql": ["sql", "mysql", "postgresql", "postgres", "t-sql", "pl/sql", "sqlite"],
+    "llms": ["llm", "llms", "large language model", "large language models"],
+    "etl/elt pipelines": ["etl", "elt"],
+    "git/github": ["git", "github"],
+    "rest apis": ["rest api", "rest apis", "restful"],
+    "scikit-learn": ["scikit-learn", "sklearn", "scikit learn"],
+    "hugging face transformers": ["hugging face", "huggingface"],
+    "power bi": ["power bi", "powerbi"],
+    "aws s3": ["s3"],
 }
 
 

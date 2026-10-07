@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     database_url: str = f"sqlite:///{PROJECT_ROOT / 'data' / 'jobs.db'}"
     search_config_path: Path = PROJECT_ROOT / "config" / "search.yaml"
+    master_resume_path: Path = PROJECT_ROOT / "private" / "master_resume.json"
     log_level: str = "INFO"
 
     # Job sources
@@ -36,6 +37,7 @@ class SearchConfig(BaseModel):
     must_have_skills: list[str] = []
     deal_breakers: list[str] = []
     daily_application_cap: int = Field(default=15, ge=1, le=50)
+    min_match_score: float = Field(default=40, ge=0, le=100)
 
     @model_validator(mode="after")
     def check_experience_range(self) -> "SearchConfig":
