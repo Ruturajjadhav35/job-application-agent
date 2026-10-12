@@ -76,3 +76,31 @@ def extract_experience(text: str) -> tuple[int | None, int | None]:
 def looks_remote(*texts: str) -> bool:
     joined = " ".join(t.lower() for t in texts if t)
     return any(w in joined for w in ("remote", "work from home", "wfh"))
+
+
+_LEGAL = re.compile(
+    r"[,.]?\s*\b(private limited|pvt\.? ltd\.?|pvt\.?|limited|ltd\.?|inc\.?|llp|llc|"
+    r"corporation|corp\.?|company|co\.)\s*$",
+    re.I,
+)
+_GENERIC_TAIL = re.compile(
+    r"\s+\b(software|technologies|technology|solutions|services|systems|consulting|"
+    r"infotech|india|global|international|careers)\s*$",
+    re.I,
+)
+
+
+def short_company(name: str) -> str:
+    """How a person would write the company name: "Trigent Software Private Limited" -> "Trigent".
+
+    Legal suffixes always go. Generic words like "Software" go too, unless that
+    would leave a name of three letters or fewer ("VY Systems" stays).
+    """
+    out = name.strip()
+    while (new := _LEGAL.sub("", out).strip()) != out:
+        out = new
+    while (new := _GENERIC_TAIL.sub("", out).strip()) != out and len(new.replace(" ", "")) > 3:
+        out = new
+    if name.isupper():  # "VY SYSTEMS PRIVATE LIMITED" -> "VY Systems"
+        out = " ".join(w if len(w) <= 3 else w.capitalize() for w in out.split())
+    return out or name.strip()

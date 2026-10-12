@@ -36,5 +36,8 @@ extend-exclude = ["migrations"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+"src/job_agent/prompts.py" = ["E501"]  # prompt text reads better unwrapped
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

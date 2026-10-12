@@ -77,3 +77,24 @@ class JobEvent(SQLModel, table=True):
     actor: Actor = Field(sa_column=_enum_column(Actor, "event_actor", nullable=False))
     reason: str | None = None
     created_at: datetime = Field(default_factory=utcnow)
+
+
+class Draft(SQLModel, table=True):
+    """One drafting attempt for a job: the tailored resume, letter and honesty report."""
+
+    __tablename__ = "drafts"
+
+    id: int | None = Field(default=None, primary_key=True)
+    job_id: int = Field(foreign_key="jobs.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    model: str
+    attempts: int = 1
+    passed: bool = False
+    folder: str | None = None
+    plan: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    truth_report: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    resume_tex: str = ""
+    cover_letter: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0

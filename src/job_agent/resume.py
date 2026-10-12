@@ -85,11 +85,13 @@ class MasterResume(BaseModel):
         for group, items in self.skills.items():
             parts.append(f"{group}: {', '.join(items)}")
         for e in self.experience:
-            parts.append(f"{e.title} at {e.company}. " + " ".join(e.bullets))
+            dates = f"({e.start} to {e.end or 'present'})"
+            parts.append(f"{e.title} at {e.company} {dates}. " + " ".join(e.bullets))
         for p in self.projects:
             parts.append(f"{p.name} ({', '.join(p.tech)}). " + " ".join(p.bullets))
         for ed in self.education:
-            parts.append(f"{ed.degree}, {ed.institution}. " + " ".join(ed.details))
+            years = f"({ed.start} to {ed.end})" if ed.start or ed.end else ""
+            parts.append(f"{ed.degree}, {ed.institution} {years}. " + " ".join(ed.details))
         return "\n".join(parts)
 
 

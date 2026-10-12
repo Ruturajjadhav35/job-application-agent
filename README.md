@@ -38,5 +38,10 @@ applications. You review and submit every application yourself.
 2. `uv run job-agent screen` applies the rule filters (scams, seniority, experience, location)
 3. `uv run job-agent match` scores shortlisted jobs against `private/master_resume.json`
 4. `uv run job-agent list --top 30` shows your best matches
+5. `uv run job-agent draft --top 3` drafts a tailored resume (LaTeX) and cover letter for the best jobs
+
+Drafts are saved in `private/drafts/`. Every draft passes a truthfulness check against
+your master resume before the job moves to "drafted". You review and submit yourself.
+Check your LLM key any time with `uv run job-agent llm-check`.
 
 Your master resume lives in `private/`, which Git ignores. It never goes to GitHub.

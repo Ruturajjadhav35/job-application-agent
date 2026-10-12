@@ -1,5 +1,6 @@
 import json
 import re
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -48,7 +49,7 @@ class BagOfWordsEmbedder:
         for t in texts:
             v = np.zeros(512)
             for w in re.findall(r"[a-z]+", t.lower()):
-                v[hash(w) % 512] += 1
+                v[zlib.crc32(w.encode()) % 512] += 1  # stable across runs
             n = np.linalg.norm(v)
             vecs.append(v / n if n else v)
         return np.array(vecs)

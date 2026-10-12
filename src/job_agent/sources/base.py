@@ -93,6 +93,21 @@ class PoliteClient:
         response.raise_for_status()
         return response.json()
 
+    @retry(
+        retry=retry_if_exception(_is_retryable),
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
+    def post_json(self, url: str, body: dict, headers: dict | None = None) -> dict:
+        if self.requests_made >= self.max_requests:
+            raise RequestBudgetExceeded(f"Stopped after {self.max_requests} requests this run.")
+        self._wait_for_turn(urlparse(url).netloc)
+        self.requests_made += 1
+        response = self._client.post(url, json=body, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
     def close(self) -> None:
         self._client.close()
 

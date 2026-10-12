@@ -120,6 +120,53 @@ def run_match(args) -> None:
         print("Dry run: nothing was saved.")
 
 
+def llm_check(_args) -> None:
+    from job_agent.llm import LLMError, make_llm
+
+    try:
+        llm = make_llm()
+        resp = llm.complete(
+            "You are a helpful assistant.",
+            'Reply with JSON: {"ok": true, "message": "<one short sentence about SQL>"}',
+        )
+        print(f"Model: {llm.name}")
+        print(f"Reply: {resp.json()}")
+        print(f"Usage: {resp.usage}")
+    except (LLMError, SourceConfigError) as e:
+        sys.exit(f"Error: {e}")
+
+
+def run_draft(args) -> None:
+    from job_agent.config import get_settings
+    from job_agent.drafting import DraftStats, draft_jobs, pick_jobs
+    from job_agent.llm import LLMError, make_llm
+    from job_agent.resume import load_resume
+
+    search = load_search_config()
+    resume = load_resume(get_settings().master_resume_path)
+    with get_session() as session:
+        if args.dry_run:
+            stats = DraftStats()
+            session.begin_nested()
+            picks = pick_jobs(session, args.top, args.job, stats, redraft=args.redraft)
+            session.rollback()
+            print(f"Would draft {len(picks)} job(s):")
+            for job, _ in picks:
+                print(f"  [{job.id}] {job.match_score}  {job.title} | {job.company}")
+            print("Dry run: no LLM calls, nothing saved.")
+            return
+        try:
+            llm = make_llm()
+            print(f"Drafting with {llm.name} (about 5 seconds between calls)...")
+            stats = draft_jobs(
+                session, search, resume, llm, top=args.top, job_id=args.job, redraft=args.redraft
+            )
+        except (LLMError, SourceConfigError, ValueError) as e:
+            sys.exit(f"Error: {e}")
+    print(stats.report())
+    print(f"Files are in {get_settings().drafts_dir}")
+
+
 def why(args) -> None:
     with get_session() as session:
         job = session.get(Job, args.job_id)
@@ -138,6 +185,13 @@ def why(args) -> None:
         print(f"  Skills found: {', '.join(d.get('matched_skills', [])) or 'none'}")
         if d.get("missing_must_haves"):
             print(f"  Must-haves not found: {', '.join(d['missing_must_haves'])}")
+    with get_session() as session:
+        from job_agent.models import Draft
+
+        drafts = session.exec(select(Draft).where(Draft.job_id == job.id)).all()
+    for d in drafts:
+        ok = "passed" if d.passed else "FAILED"
+        print(f"Draft #{d.id} ({d.model}, {ok}): {d.folder}")
     print("History:")
     for e in events:
         frm = e.from_status or "-"
@@ -187,6 +241,21 @@ def main() -> None:
     )
     m.add_argument("--dry-run", action="store_true", help="show scores without saving")
     m.set_defaults(func=run_match)
+
+    sub.add_parser("llm-check", help="test your LLM key with one tiny request").set_defaults(
+        func=llm_check
+    )
+
+    d = sub.add_parser("draft", help="draft tailored resumes and cover letters for top jobs")
+    d.add_argument("--top", type=int, default=3, help="how many of the best jobs to draft")
+    d.add_argument("--job", type=int, default=None, help="draft one specific job id")
+    d.add_argument("--dry-run", action="store_true", help="show which jobs would be drafted")
+    d.add_argument(
+        "--redraft",
+        action="store_true",
+        help="with --job, draft an already-drafted job again (keeps the old draft)",
+    )
+    d.set_defaults(func=run_draft)
 
     w = sub.add_parser("why", help="show a job's details and full status history")
     w.add_argument("job_id", type=int)

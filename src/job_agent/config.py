@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     master_resume_path: Path = PROJECT_ROOT / "private" / "master_resume.json"
     log_level: str = "INFO"
 
+    # LLM for step 5 drafting. Switch provider with LLM_PROVIDER in .env.
+    llm_provider: str = "gemini"  # "gemini" or "anthropic"
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str = "gemini-3.5-flash"
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model: str = "claude-haiku-4-5-20251001"
+    llm_min_interval: float = 5.0  # seconds between LLM calls (free tiers have per-minute limits)
+    drafts_dir: Path = PROJECT_ROOT / "private" / "drafts"
+
     # Job sources
     adzuna_app_id: str | None = None
     adzuna_app_key: SecretStr | None = None  # SecretStr hides the value if it's ever printed
