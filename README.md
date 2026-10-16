@@ -42,6 +42,11 @@ applications. You review and submit every application yourself.
 
 Drafts are saved in `private/drafts/`. Every draft passes a truthfulness check against
 your master resume before the job moves to "drafted". You review and submit yourself.
-Check your LLM key any time with `uv run job-agent llm-check`.
+Check your LLM key any time with `uv run job-agent llm-check`. If Google retires the
+model, `uv run job-agent llm-models` lists the ones your key can use; set `GEMINI_MODEL`
+in `.env`.
+6. `uv run job-agent dashboard` opens the review dashboard: read each draft, edit the
+   letter, approve or reject, open the job page, then record what you submitted and
+   track replies. It runs only on your computer and never submits anything for you.
 
 Your master resume lives in `private/`, which Git ignores. It never goes to GitHub.

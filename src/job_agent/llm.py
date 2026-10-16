@@ -155,6 +155,12 @@ def _post(client: PoliteClient, url: str, body: dict, headers: dict, provider: s
             raise SourceConfigError(
                 f"{provider} rejected the API key. Check your .env file."
             ) from None
+        if code == 404:
+            raise LLMError(
+                f"{provider} says this model doesn't exist (it may have been retired). Run "
+                "`uv run job-agent llm-models` to see the models your key can use, then set "
+                "GEMINI_MODEL in .env."
+            ) from None
         if code == 429:
             raise LLMError(
                 f"{provider} rate limit reached (HTTP 429). Free-tier daily quota may "
@@ -183,3 +189,48 @@ def make_llm(settings: Settings | None = None, client: PoliteClient | None = Non
     raise SourceConfigError(
         f"Unknown LLM_PROVIDER '{s.llm_provider}'. Use 'gemini' or 'anthropic'."
     )
+
+
+def list_gemini_models(
+    settings: Settings | None = None, client: PoliteClient | None = None
+) -> list[dict]:
+    """Text models this API key can call, straight from Google."""
+    s = settings or get_settings()
+    key = _secret(s.gemini_api_key)
+    if not key:
+        raise SourceConfigError("GEMINI_API_KEY is missing from your .env file.")
+    client = client or PoliteClient(min_interval=0.5, max_requests=20)
+    url = "https://generativelanguage.googleapis.com/v1beta/models"
+    skip = (
+        "image",
+        "tts",
+        "audio",
+        "live",
+        "embedding",
+        "robotics",
+        "computer-use",
+        "veo",
+        "imagen",
+        "lyria",
+        "aqa",
+    )
+    models, token = [], None
+    while True:
+        params = {"pageSize": 100, **({"pageToken": token} if token else {})}
+        try:
+            data = client.get_json(url, params=params, headers={"x-goog-api-key": key})
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                raise SourceConfigError(
+                    "Gemini rejected the API key. Check your .env file."
+                ) from None
+            raise LLMError(f"Gemini error HTTP {e.response.status_code}") from None
+        for m in data.get("models", []):
+            mid = m.get("name", "").removeprefix("models/")
+            if "generateContent" in m.get("supportedGenerationMethods", []) and not any(
+                w in mid for w in skip
+            ):
+                models.append({"id": mid, "name": m.get("displayName", "")})
+        token = data.get("nextPageToken")
+        if not token:
+            return models

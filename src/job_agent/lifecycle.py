@@ -37,6 +37,7 @@ ALLOWED_TRANSITIONS: dict[tuple[JobStatus, JobStatus], Actor] = {
     (JobStatus.DRAFTED, JobStatus.APPROVED): Actor.USER,
     (JobStatus.DRAFTED, JobStatus.REJECTED): Actor.USER,
     (JobStatus.APPROVED, JobStatus.APPLIED): Actor.USER,
+    (JobStatus.APPROVED, JobStatus.REJECTED): Actor.USER,  # changed your mind before applying
     (JobStatus.APPLIED, JobStatus.INTERVIEW): Actor.USER,
     (JobStatus.APPLIED, JobStatus.NO_RESPONSE): Actor.USER,
     (JobStatus.INTERVIEW, JobStatus.OFFER): Actor.USER,

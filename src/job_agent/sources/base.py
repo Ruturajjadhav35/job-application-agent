@@ -84,12 +84,12 @@ class PoliteClient:
         stop=stop_after_attempt(3),
         reraise=True,
     )
-    def get_json(self, url: str, params: dict | None = None) -> dict:
+    def get_json(self, url: str, params: dict | None = None, headers: dict | None = None) -> dict:
         if self.requests_made >= self.max_requests:
             raise RequestBudgetExceeded(f"Stopped after {self.max_requests} requests this run.")
         self._wait_for_turn(urlparse(url).netloc)
         self.requests_made += 1
-        response = self._client.get(url, params=params)
+        response = self._client.get(url, params=params, headers=headers)
         response.raise_for_status()
         return response.json()
 

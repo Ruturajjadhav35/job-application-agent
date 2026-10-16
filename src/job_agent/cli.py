@@ -167,6 +167,49 @@ def run_draft(args) -> None:
     print(f"Files are in {get_settings().drafts_dir}")
 
 
+def llm_models(_args) -> None:
+    from job_agent.config import get_settings
+    from job_agent.llm import LLMError, list_gemini_models
+
+    try:
+        models = list_gemini_models()
+    except (LLMError, SourceConfigError) as e:
+        sys.exit(f"Error: {e}")
+    current = get_settings().gemini_model
+    print(f"Text models your Gemini key can use (current setting: {current}):")
+    for m in sorted(models, key=lambda m: ("flash" not in m["id"], "lite" in m["id"], m["id"])):
+        mark = "   <- current" if m["id"] == current else ""
+        print(f"  {m['id']:<38}{m['name']}{mark}")
+    if current not in {m["id"] for m in models}:
+        print(f"\n'{current}' isn't available. Add a line like this to .env:")
+        print("  GEMINI_MODEL=<one of the ids above>")
+
+
+def dashboard(args) -> None:
+    import subprocess
+    from pathlib import Path
+
+    app = Path(__file__).with_name("dashboard.py")
+    print(f"Opening the review dashboard at http://localhost:{args.port}  (Ctrl+C to stop)")
+    cmd = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app),
+        "--server.address",
+        "127.0.0.1",  # only reachable from this computer
+        "--server.port",
+        str(args.port),
+        "--browser.gatherUsageStats",
+        "false",
+    ]
+    try:
+        subprocess.run(cmd, check=False)
+    except KeyboardInterrupt:
+        pass
+
+
 def why(args) -> None:
     with get_session() as session:
         job = session.get(Job, args.job_id)
@@ -256,6 +299,14 @@ def main() -> None:
         help="with --job, draft an already-drafted job again (keeps the old draft)",
     )
     d.set_defaults(func=run_draft)
+
+    sub.add_parser("llm-models", help="list the Gemini models your key can use").set_defaults(
+        func=llm_models
+    )
+
+    db = sub.add_parser("dashboard", help="open the review dashboard in your browser")
+    db.add_argument("--port", type=int, default=8501)
+    db.set_defaults(func=dashboard)
 
     w = sub.add_parser("why", help="show a job's details and full status history")
     w.add_argument("job_id", type=int)

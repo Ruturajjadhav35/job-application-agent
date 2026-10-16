@@ -402,3 +402,49 @@ def test_redraft_keeps_old_draft_and_status(env):
     assert stats.drafted == 1 and j.status == JobStatus.DRAFTED
     drafts = session.exec(select(Draft)).all()
     assert len(drafts) == 2 and drafts[0].folder != drafts[1].folder
+
+
+def test_list_gemini_models_pages_and_hides_non_text_models(monkeypatch):
+    from pydantic import SecretStr
+
+    from job_agent.llm import list_gemini_models
+
+    pages = {
+        None: {
+            "models": [
+                {
+                    "name": "models/gemini-9-flash",
+                    "displayName": "Gemini 9 Flash",
+                    "supportedGenerationMethods": ["generateContent"],
+                },
+                {
+                    "name": "models/gemini-9-flash-image",
+                    "supportedGenerationMethods": ["generateContent"],
+                },
+                {"name": "models/text-embedding-9", "supportedGenerationMethods": ["embedContent"]},
+            ],
+            "nextPageToken": "p2",
+        },
+        "p2": {
+            "models": [
+                {
+                    "name": "models/gemini-9-flash-lite",
+                    "displayName": "Lite",
+                    "supportedGenerationMethods": ["generateContent"],
+                }
+            ]
+        },
+    }
+
+    def handler(req):
+        assert req.headers["x-goog-api-key"] == "k" and "key=" not in str(req.url)
+        return httpx.Response(200, json=pages[req.url.params.get("pageToken")])
+
+    monkeypatch.setattr(config.get_settings(), "gemini_api_key", SecretStr("k"))
+    ids = [m["id"] for m in list_gemini_models(client=client_for(handler))]
+    assert ids == ["gemini-9-flash", "gemini-9-flash-lite"]
+
+
+def test_retired_model_points_to_llm_models():
+    with pytest.raises(LLMError, match="llm-models"):
+        GeminiLLM("k", "gone", client_for(lambda r: httpx.Response(404))).complete("s", "u")
