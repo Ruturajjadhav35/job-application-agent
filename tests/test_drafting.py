@@ -448,3 +448,16 @@ def test_list_gemini_models_pages_and_hides_non_text_models(monkeypatch):
 def test_retired_model_points_to_llm_models():
     with pytest.raises(LLMError, match="llm-models"):
         GeminiLLM("k", "gone", client_for(lambda r: httpx.Response(404))).complete("s", "u")
+
+
+def test_dry_run_changes_nothing_even_with_duplicates(env):
+    from job_agent.drafting import DraftStats, pick_jobs
+
+    session, _ = env
+    a = add_job(session, city="Pune", score=80)
+    b = add_job(session, city="Mumbai", score=79)
+    stats = DraftStats()
+    picks = pick_jobs(session, 5, None, stats, dry_run=True)
+    assert [j.id for j, _ in picks] == [a.id] and stats.duplicates == 1
+    session.expire_all()  # read back from the database, not memory
+    assert session.get(Job, b.id).status == JobStatus.SHORTLISTED

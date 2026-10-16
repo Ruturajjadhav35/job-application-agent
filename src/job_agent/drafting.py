@@ -108,7 +108,12 @@ def drafted_today(session: Session) -> int:
 
 
 def pick_jobs(
-    session: Session, top: int, job_id: int | None, stats: DraftStats, redraft: bool = False
+    session: Session,
+    top: int,
+    job_id: int | None,
+    stats: DraftStats,
+    redraft: bool = False,
+    dry_run: bool = False,
 ):
     """Best-scoring shortlisted jobs without a passed draft.
 
@@ -141,10 +146,12 @@ def pick_jobs(
         if key in picked:
             first, others = picked[key]
             others.append(job.city or "?")
+            stats.duplicates += 1
+            if dry_run:  # report it, but change nothing
+                continue
             reason = f"same job as #{first.id} (posted in another city)"
             job.notes = reason
             change_status(session, job, JobStatus.FILTERED_OUT, Actor.AGENT, reason=reason)
-            stats.duplicates += 1
             continue
         if len(picked) < top:
             picked[key] = (job, [])

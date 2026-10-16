@@ -147,12 +147,17 @@ def run_draft(args) -> None:
     with get_session() as session:
         if args.dry_run:
             stats = DraftStats()
-            session.begin_nested()
-            picks = pick_jobs(session, args.top, args.job, stats, redraft=args.redraft)
-            session.rollback()
+            picks = pick_jobs(
+                session, args.top, args.job, stats, redraft=args.redraft, dry_run=True
+            )
             print(f"Would draft {len(picks)} job(s):")
             for job, _ in picks:
                 print(f"  [{job.id}] {job.match_score}  {job.title} | {job.company}")
+            if stats.duplicates:
+                print(
+                    f"Would set aside {stats.duplicates} copy/copies of the same job "
+                    "posted in other cities."
+                )
             print("Dry run: no LLM calls, nothing saved.")
             return
         try:
