@@ -33,35 +33,73 @@ def show_stats(_args) -> None:
         print(f"  {source:<14}{count}")
 
 
+def _sources(which: str, max_queries: int | None):
+    """Build the sources to run. A missing Adzuna key only skips Adzuna."""
+    from job_agent.sources.adzuna import AdzunaSource
+    from job_agent.sources.ats import GreenhouseSource, LeverSource
+
+    sources = []
+    if which in ("all", "adzuna"):
+        try:
+            sources.append(AdzunaSource(max_queries=max_queries))
+        except SourceConfigError as e:
+            if which == "adzuna":
+                sys.exit(f"Error: {e}")
+            print(f"Skipping Adzuna: {e}")
+    if which in ("all", "boards", "greenhouse"):
+        sources.append(GreenhouseSource())
+    if which in ("all", "boards", "lever"):
+        sources.append(LeverSource())
+    return sources
+
+
 def fetch(args) -> None:
     from job_agent.ingest import ingest
-    from job_agent.sources.adzuna import AdzunaSource
 
     search = load_search_config()
-    try:
-        source = AdzunaSource(max_queries=args.max_queries)
-    except SourceConfigError as e:
-        sys.exit(f"Error: {e}")
-
-    queries = source.build_queries(search)
-    print(f"Running {len(queries)} Adzuna searches (about 3 seconds apart)...")
-
-    if args.dry_run:
+    for source in _sources(args.source, args.max_queries):
+        print(f"Fetching from {source.name}...")
         try:
-            for i, p in enumerate(source.fetch(search), 1):
-                where = "Remote" if p.is_remote and not p.city else (p.city or "?")
-                print(f"{i:>3}. {p.title} | {p.company} | {where}")
+            if args.dry_run:
+                for i, p in enumerate(source.fetch(search), 1):
+                    where = "Remote" if p.is_remote and not p.city else (p.city or "?")
+                    print(f"{i:>4}. {p.title} | {p.company} | {where}")
+            else:
+                with get_session() as session:
+                    print(ingest(source, search, session))
         except SourceConfigError as e:
             sys.exit(f"Error: {e}")
+        for report in getattr(source, "reports", []):
+            print(f"   {report}")
+    if args.dry_run:
         print("Dry run: nothing was saved.")
-        return
+    else:
+        print("Next: uv run job-agent screen, then uv run job-agent match")
 
-    try:
-        with get_session() as session:
-            stats = ingest(source, search, session)
-    except SourceConfigError as e:
-        sys.exit(f"Error: {e}")
-    print(stats)
+
+def boards(_args) -> None:
+    """Check every board in config/companies.yaml. Saves nothing."""
+    from job_agent.config import load_companies_config
+    from job_agent.sources.ats import GreenhouseSource, LeverSource
+
+    companies = load_companies_config()
+    total = len(companies.greenhouse) + len(companies.lever)
+    if not total:
+        sys.exit("No boards in config/companies.yaml yet.")
+    print(f"Checking {total} company boards (about 2 seconds apart)...")
+    search = load_search_config()
+    broken = 0
+    for source in (GreenhouseSource(companies), LeverSource(companies)):
+        for _ in source.fetch(search):
+            pass
+        for report in source.reports:
+            print(f"  {report}")
+            broken += report.status != "ok"
+    print(
+        "All boards work."
+        if not broken
+        else f"{broken} board(s) need attention: fix or remove them in config/companies.yaml."
+    )
 
 
 def run_screen(args) -> None:
@@ -259,10 +297,17 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("config", help="show your search settings").set_defaults(func=show_config)
     sub.add_parser("stats", help="count jobs by status and source").set_defaults(func=show_stats)
-    f = sub.add_parser("fetch", help="fetch new jobs from Adzuna")
+    f = sub.add_parser("fetch", help="fetch new jobs from Adzuna and company job boards")
+    f.add_argument(
+        "--source", default="all", choices=["all", "adzuna", "boards", "greenhouse", "lever"]
+    )
     f.add_argument("--dry-run", action="store_true", help="print jobs without saving them")
     f.add_argument("--max-queries", type=int, default=None, help="only run the first N searches")
     f.set_defaults(func=fetch)
+
+    sub.add_parser("boards", help="check the company boards in config/companies.yaml").set_defaults(
+        func=boards
+    )
 
     sc = sub.add_parser("screen", help="shortlist or filter out new jobs")
     sc.add_argument(

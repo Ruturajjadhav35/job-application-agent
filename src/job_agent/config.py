@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     database_url: str = f"sqlite:///{PROJECT_ROOT / 'data' / 'jobs.db'}"
     search_config_path: Path = PROJECT_ROOT / "config" / "search.yaml"
+    companies_config_path: Path = PROJECT_ROOT / "config" / "companies.yaml"
     master_resume_path: Path = PROJECT_ROOT / "private" / "master_resume.json"
     log_level: str = "INFO"
 
@@ -55,6 +56,20 @@ class SearchConfig(BaseModel):
         return self
 
 
+class Board(BaseModel):
+    slug: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_.-]+$")
+    name: str = Field(min_length=1)
+    india_company: bool = False
+
+
+class CompaniesConfig(BaseModel):
+    """Company job boards to read. Edit config/companies.yaml to change it."""
+
+    greenhouse: list[Board] = []
+    lever: list[Board] = []
+    title_keywords: list[str] = Field(default_factory=lambda: ["engineer", "data", "analyst"])
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
@@ -64,3 +79,11 @@ def load_search_config(path: Path | None = None) -> SearchConfig:
     path = path or get_settings().search_config_path
     with open(path, encoding="utf-8") as f:
         return SearchConfig.model_validate(yaml.safe_load(f))
+
+
+def load_companies_config(path: Path | None = None) -> CompaniesConfig:
+    path = path or get_settings().companies_config_path
+    if not path.exists():
+        return CompaniesConfig()
+    with open(path, encoding="utf-8") as f:
+        return CompaniesConfig.model_validate(yaml.safe_load(f) or {})

@@ -104,3 +104,101 @@ def short_company(name: str) -> str:
     if name.isupper():  # "VY SYSTEMS PRIVATE LIMITED" -> "VY Systems"
         out = " ".join(w if len(w) <= 3 else w.capitalize() for w in out.split())
     return out or name.strip()
+
+
+# ---------- India location detection (for company job boards) ----------
+
+# Cities that mean "India". Mapped through normalise_city() where an alias exists.
+INDIAN_CITIES = [
+    "bengaluru",
+    "bangalore",
+    "mumbai",
+    "navi mumbai",
+    "bombay",
+    "pune",
+    "hyderabad",
+    "secunderabad",
+    "chennai",
+    "madras",
+    "gurgaon",
+    "gurugram",
+    "noida",
+    "greater noida",
+    "new delhi",
+    "delhi",
+    "delhi ncr",
+    "ncr",
+    "kolkata",
+    "ahmedabad",
+    "jaipur",
+    "kochi",
+    "cochin",
+    "thiruvananthapuram",
+    "trivandrum",
+    "coimbatore",
+    "indore",
+    "chandigarh",
+    "mohali",
+    "nagpur",
+    "surat",
+    "vadodara",
+    "lucknow",
+    "bhubaneswar",
+    "visakhapatnam",
+    "mysuru",
+    "mysore",
+    "mangaluru",
+    "mangalore",
+    "goa",
+    "thane",
+]
+_CITY_RE = re.compile(
+    r"\b(" + "|".join(sorted(map(re.escape, INDIAN_CITIES), key=len, reverse=True)) + r")\b",
+    re.I,
+)
+_INDIA_RE = re.compile(r"(?i:\bindia\b)|\bIN\b")  # "IN" only in capitals
+_REMOTE_RE = re.compile(r"\b(remote|work from home|wfh|anywhere)\b", re.I)
+# Other countries that show up on boards of companies with offices in India.
+_OTHER_COUNTRY_RE = re.compile(
+    r"\b(usa|united states|u\.s\.|canada|uk|united kingdom|london|ireland|germany|france|"
+    r"netherlands|spain|poland|singapore|malaysia|indonesia|philippines|vietnam|thailand|"
+    r"japan|australia|new zealand|uae|dubai|saudi|brazil|mexico|new york|san francisco|"
+    r"seattle|toronto|berlin|amsterdam|jakarta|kuala lumpur|manila|sydney|europe|emea|"
+    r"apac|latam)\b",
+    re.I,
+)
+
+
+def india_location(
+    text: str, country: str | None = None, assume_india: bool = False
+) -> tuple[bool, str | None, bool]:
+    """Decide whether a board's location text means a job in India.
+
+    Returns (in_india, city, is_remote).
+    - A known Indian city, the word "India", or country code "IN" means India.
+    - "Remote" alone counts only for companies marked india_company in companies.yaml.
+    """
+    text = text or ""
+    city_match = _CITY_RE.search(text)
+    city = normalise_city(city_match.group(1).title()) if city_match else None
+    if city in ("Ncr", "Delhi Ncr"):
+        city = "Delhi"
+    remote = bool(_REMOTE_RE.search(text))
+    india = bool(city_match) or bool(_INDIA_RE.search(text)) or (country or "").upper() == "IN"
+    if not india and assume_india and not _OTHER_COUNTRY_RE.search(text):
+        india = True  # e.g. "Remote" or "Head office" at an India-only company
+    return india, city, remote
+
+
+def html_to_text(raw: str) -> str:
+    """Job boards send HTML (Greenhouse even sends it escaped). Keep readable text only."""
+    import html as _html
+
+    text = _html.unescape(_html.unescape(raw or ""))  # escaped twice on some boards
+    text = re.sub(r"(?is)<(script|style).*?</\1>", " ", text)
+    text = re.sub(r"(?i)<\s*(br|/p|/div|/li|/h\d|/tr)\s*/?>", "\n", text)
+    text = re.sub(r"(?i)<\s*li[^>]*>", "\n- ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"[ \t ]+", " ", text)
+    text = re.sub(r"\s*\n\s*", "\n", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()

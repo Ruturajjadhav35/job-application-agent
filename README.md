@@ -34,7 +34,10 @@ applications. You review and submit every application yourself.
 
 ## Daily commands
 
-1. `uv run job-agent fetch` gets new jobs from Adzuna
+1. `uv run job-agent fetch` gets new jobs from Adzuna and the company job boards in
+   `config/companies.yaml` (Greenhouse and Lever, with full job descriptions).
+   Use `--source adzuna` or `--source boards` to run just one. Check the boards with
+   `uv run job-agent boards`.
 2. `uv run job-agent screen` applies the rule filters (scams, seniority, experience, location)
 3. `uv run job-agent match` scores shortlisted jobs against `private/master_resume.json`
 4. `uv run job-agent list --top 30` shows your best matches

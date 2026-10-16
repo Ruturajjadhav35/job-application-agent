@@ -1,0 +1,40 @@
+# Company job boards the agent reads directly. These give the FULL job description,
+# which makes matching, the skills check and cover letters much better than Adzuna's
+# short summaries.
+#
+# To add a company, open its careers page and look at the URL:
+#   job-boards.greenhouse.io/<slug>  or  boards.greenhouse.io/<slug>  -> add under greenhouse
+#   jobs.lever.co/<slug>                                              -> add under lever
+# Then run `uv run job-agent boards` to check it works.
+#
+# name:          how the company is written in letters (keeps duplicates with Adzuna in check)
+# india_company: true if the company is India-based, so a plain "Remote" counts as India
+#
+# All boards below were checked on 16 Oct 2026.
+
+greenhouse:
+  - {slug: phonepe, name: PhonePe, india_company: true}
+  - {slug: groww, name: Groww, india_company: true}
+  - {slug: razorpaysoftwareprivatelimited, name: Razorpay, india_company: false}
+  - {slug: postman, name: Postman, india_company: false}
+
+lever:
+  - {slug: meesho, name: Meesho, india_company: true}
+  - {slug: cred, name: CRED, india_company: true}
+  - {slug: zeta, name: Zeta, india_company: false}
+
+# Only titles containing one of these words are kept. Board listings include every
+# department (legal, sales, design...); this keeps just the technical ones.
+title_keywords:
+  - engineer
+  - developer
+  - scientist
+  - analyst
+  - analytics
+  - data
+  - machine learning
+  - ml
+  - ai
+  - sde
+  - research
+  - mlops

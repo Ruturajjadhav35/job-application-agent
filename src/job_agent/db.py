@@ -71,6 +71,38 @@ def upsert_job(session: Session, posting: JobPosting) -> tuple[Job, bool]:
     return job, True
 
 
+def enrich_job(session: Session, job: Job, posting: JobPosting) -> bool:
+    """Upgrade a stored job with a fuller description from a better source.
+
+    The same job often arrives first from Adzuna (a short summary) and later from the
+    company's own board (the full text). Only jobs not yet drafted are touched, and the
+    apply link switches to the company's own page. Returns True if anything changed.
+    """
+    if job.status not in (JobStatus.NEW, JobStatus.SHORTLISTED):
+        return False
+    if len(posting.description) <= len(job.description or "") + 100:
+        return False
+    job.description = posting.description
+    job.apply_url = str(posting.apply_url)
+    job.source = posting.source
+    job.source_job_id = posting.source_job_id
+    for field in (
+        "experience_min_years",
+        "experience_max_years",
+        "salary_min_inr",
+        "salary_max_inr",
+        "posted_at",
+    ):
+        if getattr(job, field) is None and getattr(posting, field) is not None:
+            setattr(job, field, getattr(posting, field))
+    job.match_score = None  # scored again against the full text
+    job.match_details = None
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    return True
+
+
 def change_status(
     session: Session, job: Job, target: JobStatus, actor: Actor, reason: str | None = None
 ) -> Job:
